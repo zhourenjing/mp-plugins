@@ -3,13 +3,14 @@
     "name": "短剧规整与封面",
     "description": "把「/短剧」的扁平视频/STRM 规整成每剧一文件夹；从视频抽帧生成真实剧照 poster.jpg，并可写回 115 对应文件夹。",
     "labels": "工具",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/movie.png",
     "author": "quanzhange",
     "level": 1,
     "v3": false,
     "history": {
-      "v1.0.0": "首个版本：扁平素材规整为每剧一文件夹 + ffmpeg 抽帧生成真实剧照 + 海报写回 115"
+      "v1.0.1": "补 get_command（MP 插件类校验需要）",
+      "v1.0.0": "首个版本"
     }
   }
 }

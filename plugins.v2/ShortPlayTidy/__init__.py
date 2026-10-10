@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.core.plugin import PluginManager
 from app.log import logger
 from app.plugins import _PluginBase
-from app.schemas.types import NotificationType
+from app.schemas.types import EventType, NotificationType
 
 
 class ShortPlayTidy(_PluginBase):
@@ -21,7 +21,7 @@ class ShortPlayTidy(_PluginBase):
     plugin_name = "短剧规整与封面"
     plugin_desc = "把「/短剧」的扁平视频/STRM 规整成每剧一文件夹，抽帧生成真实剧照 poster.jpg，并可写回 115 对应文件夹"
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/movie.png"
-    plugin_version = "1.0.0"
+    plugin_version = "1.0.1"
     plugin_author = "quanzhange"
     author_url = ""
     plugin_config_prefix = "shortplaytidy_"
@@ -99,7 +99,6 @@ class ShortPlayTidy(_PluginBase):
 
     @staticmethod
     def __p115():
-        """复用 P115StrmHelper 的 115 客户端（读取其 cookies 配置）"""
         cfg = PluginManager().get_plugin_config("P115StrmHelper") or {}
         cookies = cfg.get("cookies")
         if not cookies:
@@ -115,7 +114,6 @@ class ShortPlayTidy(_PluginBase):
             if not root.exists():
                 logger.warn(f"短剧规整：本地目录不存在 {root}")
                 return
-            # 1) 扁平 STRM -> 每剧一文件夹
             for f in sorted(root.glob("*.strm")):
                 safe = self.__safe(f.stem)
                 d = root / safe
@@ -125,7 +123,6 @@ class ShortPlayTidy(_PluginBase):
                     moved += 1
                 except Exception as err:
                     logger.error(f"短剧规整：移动失败 {f.name} - {err}")
-            # 2) 抽帧生成真实剧照
             if self._do_poster:
                 for d in sorted(p for p in root.iterdir() if p.is_dir()):
                     poster = d / "poster.jpg"
@@ -148,9 +145,9 @@ class ShortPlayTidy(_PluginBase):
                             tmp.unlink()
                     except Exception as err:
                         logger.error(f"短剧规整：抽帧失败 {d.name} - {err}")
-            # 3) 把海报写回 115 对应文件夹（结构保持同名）
             if self._upload_115:
                 try:
+                    import time
                     cli = self.__p115()
 
                     def did(path):
@@ -161,14 +158,13 @@ class ShortPlayTidy(_PluginBase):
                         poster = d / "poster.jpg"
                         if not (poster.exists() and poster.stat().st_size > 5000):
                             continue
-                        pdir = f"{self._p115_root}/{d.name}"
                         try:
-                            pid = did(pdir)
+                            pid = did(f"{self._p115_root}/{d.name}")
                             if not pid:
                                 cli.fs_mkdir(d.name, pid=did(self._p115_root))
-                            cli.upload(str(poster), pid=did(pdir))
+                                pid = did(f"{self._p115_root}/{d.name}")
+                            cli.upload(str(poster), pid=pid)
                             uploaded += 1
-                            import time
                             time.sleep(1)
                         except Exception as err:
                             logger.error(f"短剧规整：上传 115 失败 {d.name} - {err}")
@@ -181,7 +177,19 @@ class ShortPlayTidy(_PluginBase):
         except Exception as err:
             logger.error(f"短剧规整：执行异常 - {err}")
 
-    # ---------- 表单 ----------
+    # ---------- 命令 ----------
+    def get_command(self) -> List[Dict[str, Any]]:
+        return [{
+            "cmd": "/shortplaytidy",
+            "event": EventType.PluginAction,
+            "desc": "短剧规整与封面：立即执行一次",
+            "category": "",
+            "data": {"action": "shortplaytidy"},
+        }]
+
+    def get_api(self) -> List[Dict[str, Any]]:
+        return []
+
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
         def row(items):
             return {"component": "VRow", "content": items}
